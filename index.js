@@ -24,15 +24,19 @@ exports.resolve = function(doi, options, cb) {
       return cb(new Error('response object has no message'));
     }
 
-    if (response['message-type'] === 'work') {
-      return cb(null, exports.APIgetInfo(response.message, options.extended))
-    }
+    if (options.auth) {
+      return cb(null, response);
+    } else {
+      if (response['message-type'] === 'work') {
+        return cb(null, exports.APIgetInfo(response.message, options.extended))
+      }
 
-    if (response['message-type'] === 'work-list' && Array.isArray(response.message.items)) {
-      var list = response.message.items.map(function(item) {
-        return exports.APIgetInfo(item, options.extended);
-      });
-      return cb(null, list);
+      if (response['message-type'] === 'work-list' && Array.isArray(response.message.items)) {
+        var list = response.message.items.map(function(item) {
+          return exports.APIgetInfo(item, options.extended);
+        });
+        return cb(null, list);
+      }
     }
 
     return cb(null, {});
