@@ -70,7 +70,7 @@ exports.APIquery = function(doi, callback, auth) {
       return callback(err);
     }
 
-    if (res.statusCode === 404 || res.statusCode === 500) {
+    if (res.statusCode === 404) {
       // doi not found
       return callback(null, null);
     } else if (res.statusCode !== 200) {
@@ -86,6 +86,14 @@ exports.APIquery = function(doi, callback, auth) {
       info = JSON.parse(body);
     } catch (e) {
       return callback(e);
+    }
+
+    if (auth) {
+      if (res.statusCode !== 200) {
+        return callback(null, null);
+      } else {
+        return callback(null, info);
+      }
     }
 
     // if an error is thrown, the json should contain the status code and a detailed message
