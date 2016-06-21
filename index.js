@@ -36,7 +36,7 @@ exports.resolve = function(doi, options, cb) {
     }
 
     return cb(null, {});
-  });
+  }, options.auth);
 };
 
 /**
