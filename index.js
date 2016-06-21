@@ -70,7 +70,7 @@ exports.APIquery = function(doi, callback, auth) {
       return callback(err);
     }
 
-    if (res.statusCode === 404) {
+    if (res.statusCode === 404 || res.statusCode === 500) {
       // doi not found
       return callback(null, null);
     } else if (res.statusCode !== 200) {
