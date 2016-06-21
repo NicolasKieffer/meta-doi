@@ -10,7 +10,6 @@ exports.resolve = function(doi, options, cb) {
     if (err) {
       return cb(err);
     }
-
     if (response === null) { 
       return cb(null, {});
     }
@@ -20,26 +19,23 @@ exports.resolve = function(doi, options, cb) {
     if (typeof response !== 'object') {
       return cb(new Error('response is not a valid object'));
     }
-    if (!response.message) {
-      return cb(new Error('response object has no message'));
-    }
-
     if (options.auth) {
       return cb(null, response);
     } else {
+      if (!response.message) {
+        return cb(new Error('response object has no message'));
+      }
       if (response['message-type'] === 'work') {
         return cb(null, exports.APIgetInfo(response.message, options.extended))
       }
-
       if (response['message-type'] === 'work-list' && Array.isArray(response.message.items)) {
         var list = response.message.items.map(function(item) {
           return exports.APIgetInfo(item, options.extended);
         });
         return cb(null, list);
       }
+      return cb(null, {});
     }
-
-    return cb(null, {});
   }, options.auth);
 };
 
@@ -89,11 +85,7 @@ exports.APIquery = function(doi, callback, auth) {
     }
 
     if (auth) {
-      if (res.statusCode !== 200) {
-        return callback(null, null);
-      } else {
-        return callback(null, info);
-      }
+      return callback(null, info);
     }
 
     // if an error is thrown, the json should contain the status code and a detailed message
