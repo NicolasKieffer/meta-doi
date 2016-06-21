@@ -3,14 +3,20 @@
 var request = require('request');
 var pid;
 
-exports.resolve = function (doi, options, cb) {
+exports.resolve = function(doi, options, cb) {
   var r = {};
 
-  exports.APIquery(doi, function (err, response) {
-    if (err) { return cb(err); }
+  exports.APIquery(doi, function(err, response) {
+    if (err) {
+      return cb(err);
+    }
 
-    if (response === null) { return cb(null, {}); }
-    if (!response) { return cb(new Error('no response')); }
+    if (response === null) { 
+      return cb(null, {});
+    }
+    if (!response) {
+      return cb(new Error('no response'));
+    }
     if (typeof response !== 'object') {
       return cb(new Error('response is not a valid object'));
     }
@@ -23,7 +29,7 @@ exports.resolve = function (doi, options, cb) {
     }
 
     if (response['message-type'] === 'work-list' && Array.isArray(response.message.items)) {
-      var list = response.message.items.map(function (item) {
+      var list = response.message.items.map(function(item) {
         return exports.APIgetInfo(item, options.extended);
       });
       return cb(null, list);
@@ -35,21 +41,30 @@ exports.resolve = function (doi, options, cb) {
 
 /**
  * Query Crossref and get results
- * @param  {Object}   search   the actual query parameters
  * @param  {Object}   doi : doi to search metadata for
  * @param  {Function} callback(err, result)
+ * @param  {Array}    auth : [ login, password ]
  */
-exports.APIquery = function (doi, callback) {
-
+exports.APIquery = function(doi, callback, auth) {
   var url = 'http://api.crossref.org/works';
 
-  if (Array.isArray(doi)) {
-    url += '?rows=' + doi.length + '&filter=doi:' + doi.join(',doi:');
+  if (auth && !Array.isArray(doi)) {
+    url = 'https://doi.crossref.org/search/doi?pid=' + auth.join(':') + '&format=json&doi=' + encodeURIComponent(doi)
   } else {
-    url += '/' + encodeURIComponent(doi);
+    if (Array.isArray(doi)) {
+      url += '?rows=' + doi.length + '&filter=doi:' + doi.join(',doi:');
+    } else {
+      url += '/' + encodeURIComponent(doi);
+    }
   }
-  request.get(url, function (err, res, body) {
-    if (err) { return callback(err); }
+
+
+  request.get(url, {
+    'timeout': 120000
+  }, function(err, res, body) {
+    if (err) {
+      return callback(err);
+    }
 
     if (res.statusCode === 404) {
       // doi not found
@@ -57,6 +72,7 @@ exports.APIquery = function (doi, callback) {
     } else if (res.statusCode !== 200) {
       var error = new Error('Unexpected status code : ' + res.statusCode);
       error.url = url;
+      error.response = res;
       return callback(error);
     }
 
@@ -64,7 +80,7 @@ exports.APIquery = function (doi, callback) {
 
     try {
       info = JSON.parse(body);
-    } catch(e) {
+    } catch (e) {
       return callback(e);
     }
 
@@ -72,24 +88,22 @@ exports.APIquery = function (doi, callback) {
     if (info.status !== 'ok') {
       var error = new Error('got an unknown error from the API');
       error.message = info.message;
-      return callback(error) ;
+      return callback(error);
     }
 
-    callback(null , info);
+    callback(null, info);
   });
 };
 
 exports.APIgetPublicationDateYear = function(apiResult) {
-  if (apiResult.message !== undefined
-    && apiResult.message.issued !== undefined) {
+  if (apiResult.message !== undefined && apiResult.message.issued !== undefined) {
     return apiResult.message.issued['date-parts'][0][0];
   }
   return {};
 };
 
 exports.APIgetPublicationTitle = function(apiResult) {
-  if (apiResult.message !== undefined
-   && typeof apiResult.message['container-title'] !== undefined) {
+  if (apiResult.message !== undefined && typeof apiResult.message['container-title'] !== undefined) {
     return apiResult.message['container-title'][0];
   }
   return {};
@@ -102,7 +116,8 @@ exports.APIgetInfo = function(doc, extended) {
     'doi-publisher': '',
     'doi-type': '',
     'doi-ISSN': '',
-    'doi-subject': ''
+    'doi-subject': '',
+    'doi-author': '',
   };
 
   if (extended) {
@@ -110,15 +125,18 @@ exports.APIgetInfo = function(doc, extended) {
     info['doi-license-URL'] = '';
   }
 
-  if (typeof doc !== 'object' || doc === null) { return info; }
+  if (typeof doc !== 'object' || doc === null) {
+    return info;
+  }
 
   // search standard information
   info['doi-publication-title'] = doc['container-title'];
-  info['doi-publisher']         = doc['publisher'];
-  info['doi-type']              = doc['type'];
-  info['doi-ISSN']              = doc['ISSN'];
-  info['doi-DOI']               = doc['DOI'];
-  info['doi-subject']           = doc['subject'];
+  info['doi-publisher'] = doc['publisher'];
+  info['doi-type'] = doc['type'];
+  info['doi-ISSN'] = doc['ISSN'];
+  info['doi-DOI'] = doc['DOI'];
+  info['doi-subject'] = doc['subject'];
+  info['doi-author'] = doc['author'];
 
   if (typeof doc.issued === 'object' &&
     doc.issued['date-parts'] &&
@@ -131,7 +149,7 @@ exports.APIgetInfo = function(doc, extended) {
   // search licence informations
   if (extended && doc['license'] && doc['license'][0]) {
     info['doi-license-content-version'] = doc['license'][0]['content-version'];
-    info['doi-license-URL']             = doc['license'][0]['URL'];
+    info['doi-license-URL'] = doc['license'][0]['URL'];
   }
 
   return info;
